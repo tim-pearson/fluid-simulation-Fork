@@ -3,7 +3,8 @@ A fluid simulation using (Smoothed Particle Hydrodynamics - SPH) written in C++ 
 
 
 
-https://github.com/user-attachments/assets/6f665fbf-b837-4a76-8d9f-19c0cfc8f1a5
+https://github.com/user-attachments/assets/534629de-c47f-4f55-8455-1078db8c70af
+
 
 ## TODO:
 - Use multi-threading
