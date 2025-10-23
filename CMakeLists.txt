@@ -1,18 +1,22 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_NAME "SPH")
+set(PROJECT_NAME "Photon")
 project(${PROJECT_NAME})
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # use debugs stuff like lasan
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb")
+if (MSVC)
+    # Produce full debug info in PDBs
+    add_compile_options(/Zi)
+    add_link_options(/DEBUG /INCREMENTAL:NO)
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb")
+endif()
 set(CMAKE_BUILD_TYPE Debug)
 
 add_compile_definitions(SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders/")
-add_compile_definitions(ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets/")
-add_compile_definitions(MODELS_DIR="${CMAKE_SOURCE_DIR}/assets/models/")
-add_compile_definitions(TEXTURES_DIR="${CMAKE_SOURCE_DIR}/assets/textures/")
-
+add_compile_definitions(TEXTURE_DIR="${CMAKE_SOURCE_DIR}/assets/textures/")
+add_compile_definitions(MODEL_DIR="${CMAKE_SOURCE_DIR}/assets/models/")
 
 # Add your include and src folders
 include_directories(include)
@@ -41,25 +45,52 @@ target_include_directories(imgui PUBLIC
     extern/glfw/include
 )
 
+# stb_image (header-only)
+set(STB_SRC
+    extern/single_header_libs/stb_image_impl.cpp
+)
+
+# imFileDialog
+add_library(imfiledialog STATIC 
+    extern/fileDialog/ImFileDialog.cpp
+)
+target_link_libraries(imfiledialog PUBLIC imgui)
+target_include_directories(imfiledialog PUBLIC
+    extern/fileDialog
+    extern/single_header_libs
+)
+
 # Your main application
+file(GLOB ENGINE_SRC
+    Engine/*.cpp
+)
+
 file(GLOB RENDERER_SRC
-    src/Renderer/*.cpp
+    Renderer/*.cpp
+)
+
+file(GLOB RENDER_SYSTEMS_SRC
+    Renderer/systems/*.cpp
 )
 
 file(GLOB PHYSICS_SRC
-    src/Physics/*.cpp
+    Physics/*.cpp
 )
 
 add_executable(${PROJECT_NAME}
-    src/main.cpp
+    ./main.cpp
     ${RENDERER_SRC}
+    ${ENGINE_SRC}
+    ${RENDER_SYSTEMS_SRC}
     ${PHYSICS_SRC}
+    ${STB_SRC}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     glad
     imgui
+    imfiledialog
 )
 
 # On Linux, you may need pthread and dl
@@ -71,13 +102,10 @@ endif()
 
 # Include dirs
 target_include_directories(${PROJECT_NAME} PRIVATE
-    extern/glad/include
-    extern/glfw/include
     extern/glm
-    extern/imgui
-    extern/imgui/backends
-    extern/single_header_libs
-    src/Renderer
-    src/Physics
-    src/utils
+    Engine/include
+    Renderer/include
+    Renderer/
+    Physics/
+    include/
 )

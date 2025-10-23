@@ -1,26 +1,25 @@
 #version 450 core
-layout (location = 0) in vec3 aPos; // the position variable has attribute position 0
-//layout (location = 1) in vec3 aColor;
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 aTexCoord;
-  
-out vec3 vertPos;
-//out vec3 vertColor;
-out vec3 vertNormal;
-out vec2 TexCoord;
 
-out vec4 fragPosLightSpace;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNormal;
+layout(location = 3) in vec3 aInstancePos;  // Per-instance position
+layout(location = 4) in float aInstanceColor; // Per-instance color value
 
-uniform mat4 transform;
 uniform mat4 view;
 uniform mat4 projection;
-uniform mat4 lightSpaceMatrix;
 
-void main() {
-    gl_Position = projection * view * transform * vec4(aPos, 1.0); // see how we directly give a vec3 to vec4's constructor
-    vertPos = vec3(transform * vec4(aPos, 1.0));
-    //vertColor = aColor;
-    vertNormal = mat3(transpose(inverse(transform))) * aNormal;
-    TexCoord = vec2(aTexCoord.x, aTexCoord.y);
-    fragPosLightSpace = lightSpaceMatrix * vec4(vertPos, 1.0);
+out vec3 FragPos;
+out vec3 Normal;
+out float ParticleColor;
+
+void main()
+{
+    // hardcoded radius
+    vec3 worldPos = aPos * 0.05 + aInstancePos;
+    
+    FragPos = worldPos;
+    Normal = aNormal;
+    ParticleColor = aInstanceColor;
+    
+    gl_Position = projection * view * vec4(FragPos, 1.0);
 }

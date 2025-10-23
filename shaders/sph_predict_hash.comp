@@ -1,0 +1,68 @@
+#version 430 core
+
+layout(local_size_x = 256) in;
+
+layout(std140, binding = 0) uniform SPHParams {
+    float h, h2, h3, h6;
+    float h9, restDensity, mass, pressureMultiplier;
+    float viscosity, gravity_m, bounce, radius;
+    float maxSpeed, epsilon, numParticlesF, dt;
+    vec4 boxPos;
+    vec4 boxSize;
+    vec4 gridMin;
+    ivec4 gridDim; // gridDim.xyz | numParticles.w
+    uint numCells;
+    uint padding2[3];
+    vec4 wallVelMin;   
+    vec4 wallVelMax;   
+    vec4 prevBoxPos;    
+    vec4 prevBoxSize;   
+};
+
+// SSBOs
+layout(std430, binding = 0) buffer PositionBuffer {
+    vec4 positions[];
+};
+
+layout(std430, binding = 1) buffer VelocityBuffer {
+    vec4 velocities[]; // xyz = velocity, w = mass
+};
+
+layout(std430, binding = 4) buffer SortKeysBuffer {
+    uvec2 sortKeys[]; // x = cell_id, y = particle_idx the rest is padding
+};
+
+layout(std430, binding = 6) buffer PredictedPositionBuffer {
+    vec4 predictedPositions[];
+};
+
+uint getCellHash(ivec3 cell) {
+    if (cell.x < 0 || cell.x >= gridDim.x ||
+        cell.y < 0 || cell.y >= gridDim.y ||
+        cell.z < 0 || cell.z >= gridDim.z) {
+        return 0xFFFFFFFFu;
+    }
+    return uint(cell.x + cell.y * gridDim.x + cell.z * gridDim.x * gridDim.y);
+}
+
+ivec3 getCellCoord(vec3 position) {
+    vec3 relPos = position - gridMin.xyz;
+    return ivec3(floor(relPos / h));
+}
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= uint(gridDim.w)) return;
+    
+    vec3 pos = positions[idx].xyz;
+    vec3 vel = velocities[idx].xyz;
+    
+    vec3 predictedPos = pos + dt * vel;
+    
+    predictedPositions[idx].xyz = predictedPos;
+    
+    ivec3 cell = getCellCoord(predictedPos);
+    uint cellHash = getCellHash(cell);
+    
+    sortKeys[idx] = uvec2(cellHash, idx);
+}

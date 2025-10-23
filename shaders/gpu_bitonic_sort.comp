@@ -1,0 +1,42 @@
+#version 430 core
+
+// Simple comparison-based sort pass
+// Based on bitonic merge network
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 4) buffer SortKeys {
+    uvec2 data[];
+};
+
+uniform uint stage;      // Current stage (2, 4, 8, 16, ...)
+uniform uint step;       // Current step within stage
+uniform uint numElements;
+
+void compareAndSwap(uint i, uint j, bool dir) {
+    if (i >= numElements || j >= numElements) return;
+    
+    uvec2 a = data[i];
+    uvec2 b = data[j];
+    
+    // Compare by cell hash (x component)
+    bool doSwap = (a.x > b.x) == dir;
+    
+    if (doSwap) {
+        data[i] = b;
+        data[j] = a;
+    }
+}
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    
+    // Calculate pair index
+    uint ixj = i ^ step;
+    
+    if (ixj > i) {
+        // Determine direction
+        bool dir = ((i & stage) == 0);
+        compareAndSwap(i, ixj, dir);
+    }
+}

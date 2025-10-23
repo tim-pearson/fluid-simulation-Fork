@@ -1,0 +1,175 @@
+#version 430 core
+
+layout(local_size_x = 256) in;
+
+layout(std140, binding = 0) uniform SPHParams {
+    float h, h2, h3, h6;
+    float h9, restDensity, mass, pressureMultiplier;
+    float viscosity, gravity_m, bounce, radius;
+    float maxSpeed, epsilon, numParticlesF, dt;
+    vec4 boxPos;
+    vec4 boxSize;
+    vec4 gridMin;
+    ivec4 gridDim; // gridDim.xyz | numParticles.w
+    uint numCells;
+    uint padding2[3];
+    vec4 wallVelMin;    // Velocity of min boundary wall
+    vec4 wallVelMax;    // Velocity of max boundary wall
+    vec4 prevBoxPos;    // Previous box position
+    vec4 prevBoxSize;   // Previous box size
+};
+
+// SSBOs
+layout(std430, binding = 0) buffer PositionBuffer {
+    vec4 positions[]; 
+};
+
+layout(std430, binding = 1) buffer VelocityBuffer {
+    vec4 velocities[]; 
+};
+
+layout(std430, binding = 2) buffer DensityPressureBuffer {
+    vec4 densityPressure[]; 
+};
+
+layout(std430, binding = 3) buffer ForceBuffer {
+    vec4 forces[]; 
+};
+
+layout(std430, binding = 4) buffer SortKeysBuffer {
+    uvec2 sortKeys[]; 
+};
+
+layout(std430, binding = 5) buffer CellStartBuffer {
+    uint cellStart[]; 
+};
+
+layout(std430, binding = 6) buffer PredictedPositionBuffer {
+    vec4 predictedPositions[]; 
+};
+
+// Spiky gradient kernel
+vec3 spiky_grad(vec3 r, float rlen) {
+    float hr = h - rlen;
+    if (hr < 0.0) return vec3(0.0);
+    const float k = -45.0 / (3.14159265359 * h6);
+    return k * (hr * hr) * (r / rlen);
+}
+
+// Viscosity laplacian kernel
+float visc_lap(float rlen) {
+    if (rlen >= h) return 0.0;
+    const float k = 45.0 / (3.14159265359 * h6);
+    return k * (h - rlen);
+}
+
+ivec3 getCellCoord(vec3 position) {
+    vec3 relPos = position - gridMin.xyz;
+    return ivec3(floor(relPos / h));
+}
+
+uint getCellHash(ivec3 cell) {
+    if (cell.x < 0 || cell.x >= gridDim.x ||
+        cell.y < 0 || cell.y >= gridDim.y ||
+        cell.z < 0 || cell.z >= gridDim.z) {
+        return 0xFFFFFFFFu;
+    }
+    return uint(cell.x + cell.y * gridDim.x + cell.z * gridDim.x * gridDim.y);
+}
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= uint(gridDim.w)) return;
+    
+    vec3 pos_i = predictedPositions[idx].xyz;
+    vec3 vel_i = velocities[idx].xyz;
+    float density_i = densityPressure[idx].x;
+    float pressure_i = densityPressure[idx].y;
+    
+    vec3 fPressure = vec3(0.0);
+    vec3 fViscosity = vec3(0.0);
+    
+    ivec3 cell = getCellCoord(pos_i);
+    
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                ivec3 neighborCell = cell + ivec3(dx, dy, dz);
+                uint cellHash = getCellHash(neighborCell);
+                
+                if (cellHash == 0xFFFFFFFFu) continue;
+                if (cellHash >= numCells) continue;
+                
+                uint startIdx = cellStart[cellHash];
+                if (startIdx == 0xFFFFFFFFu) continue;
+                
+                for (uint j = startIdx; j < uint(gridDim.w); j++) {
+                    uint neighborCellId = sortKeys[j].x;
+                    if (neighborCellId != cellHash) break;
+                    
+                    uint neighborIdx = sortKeys[j].y;
+                    if (neighborIdx == idx) continue;
+                    
+                    vec3 pos_j = predictedPositions[neighborIdx].xyz;
+                    vec3 vel_j = velocities[neighborIdx].xyz;
+                    float density_j = densityPressure[neighborIdx].x;
+                    float pressure_j = densityPressure[neighborIdx].y;
+                    
+                    vec3 r_ij = pos_i - pos_j;
+                    float rlen = length(r_ij);
+
+                    if (rlen < epsilon) {
+                        vec3 randomDir = vec3(0.0, 1.0, 0.0);
+                        float epsDist = epsilon * h;
+                        continue;
+                    }
+                    
+                    if (rlen < h) {
+                        fPressure += -mass * (pressure_i + pressure_j) / (2.0 * density_j) *
+                                     spiky_grad(r_ij, rlen);
+                        
+                        fViscosity += viscosity * mass * (vel_j - vel_i) / density_j *
+                                      visc_lap(rlen);
+                    }
+                }
+            }
+        }
+    }
+    
+    vec3 fGravity = vec3(0.0, gravity_m * density_i, 0.0);
+    
+    vec3 totalForce = fPressure + fViscosity + fGravity;
+    forces[idx].xyz = totalForce;
+    
+    vel_i += dt * (totalForce / mass);
+    
+    // Clamp speed
+    float speed = length(vel_i);
+    if (speed > maxSpeed) {
+        vel_i = normalize(vel_i) * maxSpeed;
+    }
+    
+    vec3 actual_pos = positions[idx].xyz;
+    actual_pos += dt * vel_i;
+    
+    vec3 halfSize = boxSize.xyz * 0.5;
+    vec3 minB = boxPos.xyz - halfSize;
+    vec3 maxB = boxPos.xyz + halfSize;
+    
+    // Apply boundary conditions per axis
+    for (int axis = 0; axis < 3; axis++) {
+        if (actual_pos[axis] - radius < minB[axis]) {
+            actual_pos[axis] = minB[axis] + radius + epsilon;
+            float relVel = vel_i[axis] - wallVelMin[axis];
+            vel_i[axis] = wallVelMin[axis] - relVel * bounce;
+        } else if (actual_pos[axis] + radius > maxB[axis]) {
+            actual_pos[axis] = maxB[axis] - radius - epsilon;
+            float relVel = vel_i[axis] - wallVelMax[axis];
+            vel_i[axis] = wallVelMax[axis] - relVel * bounce;
+        }
+    }
+    
+    // Write back updated ACTUAL position and velocity
+    positions[idx].xyz = actual_pos;
+    velocities[idx].xyz = vel_i;
+}
