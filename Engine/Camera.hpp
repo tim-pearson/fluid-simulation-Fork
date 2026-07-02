@@ -71,7 +71,7 @@ public:
 class CameraController {
 private:
     Camera& camera;
-    KeyMapping KeyMapping;
+    KeyMapping keyMapping;
     float lastX{0.0f};
     float lastY{0.0f};
     bool firstMouse{true};

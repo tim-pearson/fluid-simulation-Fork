@@ -1,4 +1,4 @@
-#include "camera.hpp"
+#include "Camera.hpp"
 
 void Camera::init(float width, float height) {
     updateProjectionMatrix(width, height);
@@ -53,32 +53,32 @@ void Camera::move(const glm::vec3& offset) {
 }
 
 void CameraController::processKeyboardInput(GLFWwindow* window, float deltaTime) {
-    if (glfwGetKey(window, KeyMapping.FORWARD) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.FORWARD) == GLFW_PRESS) {
         camera.move(camera.getFront() * settings.speed* deltaTime);
     }
-    if (glfwGetKey(window, KeyMapping.BACKWARD) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.BACKWARD) == GLFW_PRESS) {
         camera.move(-camera.getFront() * settings.speed* deltaTime);
     }
-    if (glfwGetKey(window, KeyMapping.LEFT) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.LEFT) == GLFW_PRESS) {
         camera.move(-camera.getRight() * settings.speed* deltaTime);
     }
-    if (glfwGetKey(window, KeyMapping.RIGHT) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.RIGHT) == GLFW_PRESS) {
         camera.move(camera.getRight() * settings.speed* deltaTime);
     }
-    if (glfwGetKey(window, KeyMapping.UP) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.UP) == GLFW_PRESS) {
         camera.move(camera.getUp() * settings.speed* deltaTime);
     }
-    if (glfwGetKey(window, KeyMapping.DOWN) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.DOWN) == GLFW_PRESS) {
         camera.move(-camera.getUp() * settings.speed* deltaTime);
     }
-    if (glfwGetKey(window, KeyMapping.ROLL_LEFT) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.ROLL_LEFT) == GLFW_PRESS) {
         camera.processRotation(0.0f, 0.0f, -settings.rollSpeed * deltaTime);
     }
-    if (glfwGetKey(window, KeyMapping.ROLL_RIGHT) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.ROLL_RIGHT) == GLFW_PRESS) {
         camera.processRotation(0.0f, 0.0f, settings.rollSpeed * deltaTime);
     }
 
-    if (glfwGetKey(window, KeyMapping.FPS) == GLFW_PRESS) {
+    if (glfwGetKey(window, keyMapping.FPS) == GLFW_PRESS) {
         if (!fpsKeyPressed) {
             isFPS = !isFPS;
             if (isFPS) {
@@ -89,7 +89,7 @@ void CameraController::processKeyboardInput(GLFWwindow* window, float deltaTime)
             firstMouse = true; // Reset mouse position on toggle
             fpsKeyPressed = true;
         }
-    } else if (glfwGetKey(window, KeyMapping.FPS) == GLFW_RELEASE) {
+    } else if (glfwGetKey(window, keyMapping.FPS) == GLFW_RELEASE) {
         fpsKeyPressed = false; 
     }
 }

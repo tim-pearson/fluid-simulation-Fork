@@ -15,6 +15,7 @@ void Scene::update() {
 }
 
 void Scene::initSPH(size_t particleCount) {
+  std::cout << "initi sip called" << '\n';
     AddSkyBox();
     AddLight();
     createSphereModel();
@@ -48,6 +49,7 @@ void Scene::initSPH(size_t particleCount) {
 }
 
 void Scene::createSphereModel() {
+  std::cout <<"init spehe modele" << '\n';
     Model sphereModel;
     sphereModel.SphereModel();
     

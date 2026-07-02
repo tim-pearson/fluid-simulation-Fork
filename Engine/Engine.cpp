@@ -64,14 +64,21 @@ void Engine::run() {
 
         m_scene.update();
 
-        #ifdef ENGINE_MODE
-        m_renderer.renderToFbo(m_mainFboSize.width, m_mainFboSize.height);
-        m_ui.beginRender();
-        m_ui.render(m_uiStruct);
-        m_ui.endRender(); 
-        #else
+        /* #ifdef ENGINE_MODE */
+        /* m_renderer.renderToFbo(m_mainFboSize.width, m_mainFboSize.height); */
+        /* m_ui.beginRender(); */
+        /* m_ui.render(m_uiStruct); */
+        /* m_ui.endRender(); */ 
+        /* #else */
+        /* m_renderer.renderToScreen(m_window.width, m_window.height); */
+        /* #endif */
+
         m_renderer.renderToScreen(m_window.width, m_window.height);
-        #endif
+/* m_renderer.renderToFbo(m_mainFboSize.width, m_mainFboSize.height); */
+        /* m_ui.beginRender(); */
+        /* m_ui.render(m_uiStruct); */
+        /* m_ui.endRender(); */ 
+
         
         glfwSwapBuffers(m_window.handle);
         glfwPollEvents();
